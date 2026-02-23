@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Content Pipeline — Dashboard (Snapshot)</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #8b8d97;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --orange: #f97316;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    padding: 24px; line-height: 1.5;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .card h2 { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .big-number { font-size: 2.5rem; font-weight: 700; }
+  .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--muted); }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 9999px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-pending   { background: #eab30820; color: var(--yellow); }
+  .badge-generating { background: #3b82f620; color: var(--blue); }
+  .badge-generated { background: #6366f120; color: var(--accent); }
+  .badge-scheduled { background: #22c55e20; color: var(--green); }
+  .badge-failed    { background: #ef444420; color: var(--red); }
+  .badge-ok   { background: #22c55e20; color: var(--green); }
+  .badge-miss { background: #ef444420; color: var(--red); }
+  .key-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .key-row:last-child { border-bottom: none; }
+  .key-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .key-dot.ok { background: var(--green); }
+  .key-dot.miss { background: var(--red); }
+  .key-name { font-weight: 600; font-size: 0.85rem; }
+  .key-desc { color: var(--muted); font-size: 0.78rem; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; color: var(--muted); padding: 8px 12px; border-bottom: 2px solid var(--border); font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: #ffffff06; }
+  .log-box {
+    background: #0a0b0f; border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; max-height: 400px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.75rem; line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+  }
+  .log-box .log-error { color: var(--red); }
+  .log-box .log-warn  { color: var(--yellow); }
+  .log-box .log-info  { color: var(--blue); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--muted); border: 1px solid transparent;
+    font-size: 0.85rem; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); background: var(--card); }
+  .tab.active { background: var(--card); color: var(--text); border-color: var(--border); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .refresh-info { color: var(--muted); font-size: 0.78rem; }
+  .snapshot-badge { background: var(--orange); color: #000; padding: 4px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; }
+  .file-section h3 { font-size: 0.85rem; color: var(--accent); margin: 12px 0 8px; }
+  .empty { color: var(--muted); font-style: italic; font-size: 0.82rem; padding: 8px 0; }
+  .platform-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem;
+    font-weight: 600; background: #6366f120; color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>AI Content Pipeline</h1>
+    <div class="subtitle">Dashboard snapshot — static file, open in any browser</div>
+  </div>
+  <span class="snapshot-badge">SNAPSHOT</span>
+</div>
+
+<div class="grid" id="summary-cards">
+  <div class="card">
+    <h2>Total Items</h2>
+    <div class="big-number" id="total-items">—</div>
+  </div>
+  <div class="card">
+    <h2>Status Breakdown</h2>
+    <div id="status-breakdown"><div class="empty">Loading…</div></div>
+  </div>
+  <div class="card">
+    <h2>Configuration</h2>
+    <div id="config-summary"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="queue">Content Queue</div>
+  <div class="tab" data-tab="posts">Post Log</div>
+  <div class="tab" data-tab="keys">API Keys</div>
+  <div class="tab" data-tab="outputs">Output Files</div>
+  <div class="tab" data-tab="logs">Pipeline Logs</div>
+</div>
+
+<div class="tab-panel active" id="panel-queue">
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Status</th><th>Topic</th><th>Caption</th><th>Source</th><th>Created</th><th>Updated</th></tr></thead>
+        <tbody id="queue-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-posts">
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Content ID</th><th>Platform</th><th>Post ID</th><th>Status</th><th>Posted At</th></tr></thead>
+        <tbody id="posts-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-keys">
+  <div class="card">
+    <div id="keys-list"></div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-outputs">
+  <div class="card" id="outputs-card"></div>
+</div>
+
+<div class="tab-panel" id="panel-logs">
+  <div class="card">
+    <div class="log-box" id="log-box"></div>
+  </div>
+</div>
+
+<script>
+const DATA = {"summary": {"status_counts": {"generated": 1}, "total": 1, "recent_items": [{"id": 1, "source_url": "https://example.com", "topic": "test topic", "script": "{\"hook\": \"test\"}", "caption": "test caption #test", "status": "generated", "video_path": "/tmp/test.mp4", "audio_path": null, "final_video_path": null, "post_submission_id": null, "created_at": "2026-02-23 02:28:51", "updated_at": "2026-02-23T02:28:51.473762+00:00"}]}, "queue": [{"id": 1, "source_url": "https://example.com", "topic": "test topic", "script": "{\"hook\": \"test\"}", "caption": "test caption #test", "status": "generated", "video_path": "/tmp/test.mp4", "audio_path": null, "final_video_path": null, "post_submission_id": null, "created_at": "2026-02-23 02:28:51", "updated_at": "2026-02-23T02:28:51.473762+00:00"}], "posts": [], "config": {"api_keys": [{"name": "APIFY_API_TOKEN", "configured": true, "description": "Apify \u2014 content scraping"}, {"name": "GEMINI_API_KEY", "configured": true, "description": "Gemini \u2014 content analysis"}, {"name": "HIGGSFIELD_API_KEY", "configured": true, "description": "Higgsfield \u2014 video generation"}, {"name": "ELEVENLABS_API_KEY", "configured": true, "description": "ElevenLabs \u2014 voice synthesis"}, {"name": "BLOTATO_API_KEY", "configured": true, "description": "Blotato \u2014 post scheduling"}], "soul_id": false, "voice_id": false, "posts_per_day": 3, "platforms": ["tiktok", "instagram", "youtube"], "approval_mode": "auto"}, "outputs": {"videos": [], "audio": [], "final": []}, "logs": {"log": "2026-02-23 02:22:45 | DEBUG   | pipeline.db | Database initialized at /home/user/clawdbot/ai-content-pipeline/outputs/pipeline.db\n2026-02-23 02:23:04 | DEBUG   | pipeline.db | Database initialized at /home/user/clawdbot/ai-content-pipeline/outputs/pipeline.db\n2026-02-23 02:23:04 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:23:04 | INFO    | pipeline.orchestrator |    FULL PIPELINE RUN\n2026-02-23 02:23:04 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:23:04 | INFO    | pipeline.orchestrator | === PHASE 1: Content Discovery ===\n2026-02-23 02:23:04 | INFO    | pipeline.scraper | Starting content discovery across all platforms\n2026-02-23 02:23:04 | INFO    | pipeline.scraper | Starting Apify actor clockworks/free-tiktok-scraper\n2026-02-23 02:25:50 | DEBUG   | pipeline.db | Database initialized at /home/user/clawdbot/ai-content-pipeline/outputs/pipeline.db\n2026-02-23 02:25:50 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:25:50 | INFO    | pipeline.orchestrator |    FULL PIPELINE RUN\n2026-02-23 02:25:50 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:25:50 | INFO    | pipeline.orchestrator | === PHASE 1: Content Discovery ===\n2026-02-23 02:25:50 | INFO    | pipeline.scraper | Starting content discovery across all platforms\n2026-02-23 02:25:50 | INFO    | pipeline.scraper | Starting Apify actor clockworks/free-tiktok-scraper\n2026-02-23 02:26:34 | ERROR   | pipeline.scraper | TikTok scrape failed: Failed to connect to the server.\nReason: hyper_util::client::legacy::Error(\n    Connect,\n    TunnelUnsuccessful,\n)\n2026-02-23 02:26:34 | INFO    | pipeline.scraper | Starting Apify actor apify/instagram-hashtag-scraper\n2026-02-23 02:27:01 | DEBUG   | pipeline.db | Database initialized at /home/user/clawdbot/ai-content-pipeline/outputs/pipeline.db\n2026-02-23 02:27:01 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:27:01 | INFO    | pipeline.orchestrator |    FULL PIPELINE RUN\n2026-02-23 02:27:01 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:27:01 | INFO    | pipeline.orchestrator | === PHASE 1: Content Discovery ===\n2026-02-23 02:27:01 | INFO    | pipeline.scraper | Starting content discovery across all platforms\n2026-02-23 02:27:01 | INFO    | pipeline.scraper | Starting Apify actor clockworks/free-tiktok-scraper\n2026-02-23 02:28:51 | DEBUG   | pipeline.db | Database initialized at /home/user/clawdbot/ai-content-pipeline/outputs/pipeline.db\n2026-02-23 02:28:51 | DEBUG   | pipeline.db | Added content id=1 topic=test topic\n2026-02-23 02:28:51 | DEBUG   | pipeline.db | Updated content id=1 status=generated\n2026-02-23 02:28:51 | ERROR   | pipeline.video_editor | ffmpeg not found. Install it:\n  macOS:  brew install ffmpeg\n  Linux:  sudo apt install ffmpeg\n  Windows: choco install ffmpeg\n2026-02-23 02:29:57 | ERROR   | pipeline.scraper | Instagram scrape failed: Failed to connect to the server.\nReason: hyper_util::client::legacy::Error(\n    Connect,\n    TunnelUnsuccessful,\n)\n2026-02-23 02:29:57 | INFO    | pipeline.scraper | Starting Apify actor streamers/youtube-scraper\n2026-02-23 02:31:13 | DEBUG   | pipeline.db | Database initialized at /home/user/clawdbot/ai-content-pipeline/outputs/pipeline.db\n2026-02-23 02:32:34 | ERROR   | pipeline.scraper | YouTube scrape failed: Failed to connect to the server.\nReason: hyper_util::client::legacy::Error(\n    Connect,\n    TunnelUnsuccessful,\n)\n2026-02-23 02:32:34 | WARNING | pipeline.scraper | No content scraped from any platform\n2026-02-23 02:32:34 | WARNING | pipeline.orchestrator | No content discovered \u2014 skipping analysis\n2026-02-23 02:32:34 | INFO    | pipeline.orchestrator | ========================================\n2026-02-23 02:32:34 | INFO    | pipeline.orchestrator |    PIPELINE SUMMARY\n2026-02-23 02:32:34 | INFO    | pipeline.orchestrator |    Discovered: 0\n2026-02-23 02:32:34 | INFO    | pipeline.orchestrator |    Generated:  0\n2026-02-23 02:32:34 | INFO    | pipeline.orchestrator |    Scheduled:  0\n2026-02-23 02:32:34 | INFO    | pipeline.orchestrator | ========================================"}};
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+function badgeClass(status) {
+  const map = { pending:'badge-pending', generating:'badge-generating', generated:'badge-generated', scheduled:'badge-scheduled', failed:'badge-failed' };
+  return map[status] || 'badge-pending';
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function trunc(s, n) { s = s || ''; return s.length > n ? s.slice(0, n) + '...' : s; }
+
+// Summary
+document.getElementById('total-items').textContent = DATA.summary.total || 0;
+const bd = document.getElementById('status-breakdown');
+const sc = DATA.summary.status_counts;
+if (!sc || Object.keys(sc).length === 0) {
+  bd.innerHTML = '<div class="empty">No items yet.</div>';
+} else {
+  bd.innerHTML = Object.entries(sc).sort(([a],[b]) => a.localeCompare(b))
+    .map(([s,c]) => '<div class="stat-row"><span class="stat-label">'+esc(s)+'</span><span class="badge '+badgeClass(s)+'">'+c+'</span></div>')
+    .join('');
+}
+
+// Config
+const cfg = DATA.config;
+document.getElementById('config-summary').innerHTML =
+  '<div class="stat-row"><span class="stat-label">Soul ID</span><span class="badge '+(cfg.soul_id?'badge-ok':'badge-miss')+'">'+(cfg.soul_id?'Configured':'Not Set')+'</span></div>'+
+  '<div class="stat-row"><span class="stat-label">Voice Clone</span><span class="badge '+(cfg.voice_id?'badge-ok':'badge-miss')+'">'+(cfg.voice_id?'Configured':'Not Set')+'</span></div>'+
+  '<div class="stat-row"><span class="stat-label">Posts / Day</span><span>'+cfg.posts_per_day+'</span></div>'+
+  '<div class="stat-row"><span class="stat-label">Approval</span><span>'+esc(cfg.approval_mode)+'</span></div>'+
+  '<div class="stat-row"><span class="stat-label">Platforms</span><div class="platform-pills">'+(cfg.platforms||[]).map(p => '<span class="pill">'+esc(p)+'</span>').join('')+'</div></div>';
+
+// Queue
+const qb = document.getElementById('queue-body');
+if (!DATA.queue.length) {
+  qb.innerHTML = '<tr><td colspan="7" class="empty">No content in queue.</td></tr>';
+} else {
+  qb.innerHTML = DATA.queue.map(i =>
+    '<tr><td>'+i.id+'</td><td><span class="badge '+badgeClass(i.status)+'">'+esc(i.status)+'</span></td><td>'+esc(trunc(i.topic,60))+'</td><td>'+esc(trunc(i.caption,50))+'</td><td>'+(i.source_url?'<a href="'+esc(i.source_url)+'" target="_blank" style="color:var(--accent)">link</a>':'—')+'</td><td>'+esc(i.created_at)+'</td><td>'+esc(i.updated_at)+'</td></tr>'
+  ).join('');
+}
+
+// Posts
+const pb = document.getElementById('posts-body');
+if (!DATA.posts.length) {
+  pb.innerHTML = '<tr><td colspan="6" class="empty">No posts scheduled yet.</td></tr>';
+} else {
+  pb.innerHTML = DATA.posts.map(p =>
+    '<tr><td>'+p.id+'</td><td>'+p.content_id+'</td><td><span class="pill">'+esc(p.platform)+'</span></td><td>'+esc(trunc(p.post_id,30))+'</td><td><span class="badge '+badgeClass(p.status)+'">'+esc(p.status)+'</span></td><td>'+esc(p.posted_at)+'</td></tr>'
+  ).join('');
+}
+
+// Keys
+document.getElementById('keys-list').innerHTML = cfg.api_keys.map(k =>
+  '<div class="key-row"><div class="key-dot '+(k.configured?'ok':'miss')+'"></div><div><div class="key-name">'+esc(k.name)+' <span class="badge '+(k.configured?'badge-ok':'badge-miss')+'">'+(k.configured?'Set':'Missing')+'</span></div><div class="key-desc">'+esc(k.description)+'</div></div></div>'
+).join('');
+
+// Outputs
+const oc = document.getElementById('outputs-card');
+let oh = '';
+for (const [section, files] of Object.entries(DATA.outputs)) {
+  oh += '<div class="file-section"><h3>'+esc(section)+' ('+files.length+')</h3>';
+  if (!files.length) { oh += '<div class="empty">No files yet</div>'; }
+  else {
+    oh += '<table><thead><tr><th>File</th><th>Size</th><th>Modified</th></tr></thead><tbody>';
+    oh += files.map(f => '<tr><td>'+esc(f.name)+'</td><td>'+esc(f.size)+'</td><td>'+esc(f.modified)+'</td></tr>').join('');
+    oh += '</tbody></table>';
+  }
+  oh += '</div>';
+}
+oc.innerHTML = oh;
+
+// Logs
+const box = document.getElementById('log-box');
+const log = DATA.logs.log;
+if (!log) { box.textContent = 'No logs available.'; }
+else {
+  box.innerHTML = log.split('\n').map(line => {
+    if (/\bERROR\b/.test(line)) return '<span class="log-error">'+esc(line)+'</span>';
+    if (/\bWARNING\b/.test(line)) return '<span class="log-warn">'+esc(line)+'</span>';
+    if (/\bINFO\b/.test(line)) return '<span class="log-info">'+esc(line)+'</span>';
+    return esc(line);
+  }).join('\n');
+  box.scrollTop = box.scrollHeight;
+}
+</script>
+</body>
+</html>
