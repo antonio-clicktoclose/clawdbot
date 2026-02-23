@@ -54,6 +54,26 @@ python main.py --phase scheduling
 python main.py --status
 ```
 
+## Dashboard
+
+A built-in web dashboard lets you monitor the entire pipeline in real time:
+
+```bash
+# Start the dashboard (default: http://localhost:5050)
+python dashboard.py
+
+# Custom port
+python dashboard.py --port 8080
+```
+
+The dashboard shows:
+- **Summary cards** — total items, status breakdown, configuration health
+- **Content Queue** — every item with status, topic, caption, source link
+- **Post Log** — scheduled posts per platform with timestamps
+- **API Keys** — which keys are configured (values are never exposed)
+- **Output Files** — generated videos, audio, and final composed files
+- **Pipeline Logs** — color-coded live log viewer (auto-refreshes every 30s)
+
 ## Troubleshooting
 
 - **"Soul ID not configured"** — Run `python main.py --setup-soul-id` first.
