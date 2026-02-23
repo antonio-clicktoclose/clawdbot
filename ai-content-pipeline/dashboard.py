@@ -166,6 +166,18 @@ def api_outputs():
     return jsonify(_output_files())
 
 
+@app.route("/healthz")
+def healthz():
+    """Health check for Fly.io / load balancers."""
+    try:
+        db = _db()
+        db.pipeline_summary()
+        db.close()
+        return jsonify({"status": "ok"}), 200
+    except Exception as exc:
+        return jsonify({"status": "error", "detail": str(exc)}), 503
+
+
 # ---------------------------------------------------------------------------
 # Main HTML dashboard (single-page, self-contained)
 # ---------------------------------------------------------------------------
